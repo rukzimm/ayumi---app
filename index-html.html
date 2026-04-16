@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>Ayumi Home Decor</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#E8DDD0;font-family:'Jost',sans-serif;min-height:100vh;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:#F5EFE6;}
+::-webkit-scrollbar-thumb{background:#C2AD96;border-radius:2px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+@keyframes shimmer{0%,100%{opacity:.7}50%{opacity:1}}
+input,select,button{font-family:'Jost',sans-serif;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+const C={
+  sand:"#E8DDD0",sand2:"#D4C5B0",sand3:"#C2AD96",cream:"#F5EFE6",cream2:"#FAF7F3",
+  dark:"#3D2B1F",dark2:"#5C4033",dark3:"#7A5C4A",gold:"#C4963A",gold2:"#E8B84B",
+  rose:"#C9897A",sage:"#8A9E87",muted:"#9E8B7C",white:"#FDFAF6",err:"#C0392B",
+};
+
+// ── Storage isolado por usuário (localStorage) ──────────────────────────────
+function storageKey(user,key){return `ayumi::${user}::${key}`;}
+function loadUD(user,key){try{const v=localStorage.getItem(storageKey(user,key));return v?JSON.parse(v):null;}catch{return null;}}
+function saveUD(user,key,val){try{localStorage.setItem(storageKey(user,key),JSON.stringify(val));}catch{}}
+
+// ── Auth (usuários salvos em localStorage com hash simples) ──────────────────
+function hashPw(pw){let h=0;for(let i=0;i<pw.length;i++){h=((h<<5)-h)+pw.charCodeAt(i);h|=0;}return h.toString(36);}
+function getUsers(){try{return JSON.parse(localStorage.getItem('ayumi::users')||'{}');}catch{return{};}}
+function saveUsers(u){localStorage.setItem('ayumi::users',JSON.stringify(u));}
+function authLogin(user,pw){const us=getUsers();const u=us[user];if(!u)return'not_found';if(u.pw!==hashPw(pw))return'wrong_pw';return'ok';}
+function authRegister(user,pw,adminKey){
+  if(adminKey!==getAdminKey())return'bad_key';
+  const us=getUsers();if(us[user])return'exists';
+  us[user]={pw:hashPw(pw),createdAt:Date.now()};saveUsers(us);return'ok';
+}
+function getAdminKey(){return localStorage.getItem('ayumi::adminkey')||'ayumi2024';}
+function setAdminKeyStore(k){localStorage.setItem('ayumi::adminkey',k);}
+function listUsers(){return Object.keys(getUsers());}
+
+// ── Dados iniciais ────────────────────────────────────────────────────────────
+const INIT_PRODS=[
+  {id:1,nome:"Vela Nossa Senhora",custo:57,preco:135,estoqueInicial:10},
+  {id:2,nome:"Vela Sagrada Família",custo:55,preco:140,estoqueInicial:10},
+];
+const INIT_VENDAS=[
+  {id:1,data:"2026-04-13",produto:"Vela Nossa Senhora",qtd:1,valorUnit:135,valorCobrado:135,desconto:0,produtoId:1},
+  {id:2,data:"2026-04-13",produto:"Vela Sagrada Família",qtd:1,valorUnit:140,valorCobrado:140,desconto:0,produtoId:2},
+];
+
+const fmt=n=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(n||0);
+const today=()=>new Date().toISOString().slice(0,10);
+const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`;};
+const UNITS=["g","kg","ml","L","unid","m","cm"];
+function toBase(q,u){if(u==="kg")return q*1000;if(u==="L")return q*1000;return q;}
+
+// ── Componentes base ─────────────────────────────────────────────────────────
+function LogoSVG({dark=false,size=160}){
+  const tc=dark?C.white:C.dark;
+  return(
+    <svg viewBox="0 0 500 200" xmlns="http://www.w3.org/2000/svg" style={{width:size,height:"auto"}}>
+      <g fill="none" stroke={C.gold} strokeWidth="1.4">
+        <path d="M60,145 Q40,122 55,96"/><ellipse cx="55" cy="94" rx="5" ry="9" fill={C.gold} transform="rotate(-20,55,94)"/>
+        <path d="M62,145 Q35,112 45,80"/><ellipse cx="44" cy="78" rx="5" ry="9" fill={C.gold} transform="rotate(-35,44,78)"/>
+        <path d="M64,145 Q30,102 35,66"/><ellipse cx="34" cy="64" rx="5" ry="9" fill={C.gold} transform="rotate(-45,34,64)"/>
+        <path d="M55,148 Q45,128 58,108"/><ellipse cx="59" cy="106" rx="4" ry="8" fill={C.gold} transform="rotate(-10,59,106)"/>
+      </g>
+      <g fill="none" stroke={C.gold} strokeWidth="1.4">
+        <path d="M440,145 Q460,122 445,96"/><ellipse cx="445" cy="94" rx="5" ry="9" fill={C.gold} transform="rotate(20,445,94)"/>
+        <path d="M438,145 Q465,112 455,80"/><ellipse cx="456" cy="78" rx="5" ry="9" fill={C.gold} transform="rotate(35,456,78)"/>
+        <path d="M436,145 Q470,102 465,66"/><ellipse cx="466" cy="64" rx="5" ry="9" fill={C.gold} transform="rotate(45,466,64)"/>
+        <path d="M445,148 Q455,128 442,108"/><ellipse cx="441" cy="106" rx="4" ry="8" fill={C.gold} transform="rotate(10,441,106)"/>
+      </g>
+      <text x="250" y="118" textAnchor="middle" fontFamily="'Cormorant Garamond',Georgia,serif" fontSize="72" fontWeight="400" fontStyle="italic" fill={tc} letterSpacing="2">ayumi</text>
+      <text x="250" y="152" textAnchor="middle" fontFamily="'Jost',sans-serif" fontSize="15" fontWeight="400" fill={C.gold} letterSpacing="6">HOME DECOR</text>
+    </svg>
+  );
+}
+
+function Card({children,style,onClick}){
+  return <div onClick={onClick} style={{background:C.white,borderRadius:16,padding:"16px 18px",boxShadow:"0 2px 12px rgba(61,43,31,.08)",animation:"fadeUp .4s ease",cursor:onClick?"pointer":"default",...style}}>{children}</div>;
+}
+function Inp({label,value,onChange,type="text",placeholder,min,step,note}){
+  const[focus,setFocus]=useState(false);
+  return(
+    <div style={{marginBottom:12}}>
+      {label&&<label style={{display:"block",fontSize:10,fontWeight:500,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:4}}>{label}</label>}
+      {note&&<div style={{fontSize:10,color:C.muted,marginBottom:4}}>{note}</div>}
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder} min={min} step={step}
+        style={{width:"100%",padding:"11px 14px",border:`1.5px solid ${focus?C.gold:C.sand2}`,borderRadius:10,background:C.cream2,color:C.dark,fontSize:14,outline:"none",transition:"border .2s"}}
+        onFocus={()=>setFocus(true)} onBlur={()=>setFocus(false)}/>
+    </div>
+  );
+}
+function Sel({label,value,onChange,options,placeholder="Selecione..."}){
+  const[focus,setFocus]=useState(false);
+  return(
+    <div style={{marginBottom:12}}>
+      {label&&<label style={{display:"block",fontSize:10,fontWeight:500,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:4}}>{label}</label>}
+      <select value={value} onChange={onChange} onFocus={()=>setFocus(true)} onBlur={()=>setFocus(false)}
+        style={{width:"100%",padding:"11px 14px",border:`1.5px solid ${focus?C.gold:C.sand2}`,borderRadius:10,background:C.cream2,fontSize:14,outline:"none",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239E8B7C' fill='none' stroke-width='1.5'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 14px center",color:C.dark}}>
+        <option value="">{placeholder}</option>
+        {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+function Btn({children,onClick,variant="primary",disabled,style}){
+  const bg=variant==="primary"?`linear-gradient(135deg,${C.dark2},${C.dark})`:variant==="gold"?`linear-gradient(135deg,${C.gold},${C.gold2})`:variant==="danger"?C.err:C.cream;
+  const color=variant==="light"?C.dark:C.white;
+  return <button onClick={onClick} disabled={disabled} style={{background:bg,color,border:"none",borderRadius:12,padding:"13px 20px",fontSize:13,fontWeight:500,letterSpacing:1,cursor:disabled?"not-allowed":"pointer",width:"100%",transition:"opacity .2s",opacity:disabled?.5:1,...style}}
+    onMouseDown={e=>{if(!disabled)e.currentTarget.style.opacity=".8";}} onMouseUp={e=>e.currentTarget.style.opacity="1"}>{children}</button>;
+}
+function Toast({msg,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,2500);return()=>clearTimeout(t);},[]);
+  return <div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",background:C.dark,color:C.cream,padding:"12px 22px",borderRadius:30,fontSize:13,zIndex:9999,animation:"fadeUp .3s ease",boxShadow:"0 4px 20px rgba(0,0,0,.25)",whiteSpace:"nowrap"}}>{msg}</div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TELA DE LOGIN
+// ══════════════════════════════════════════════════════════════════════════════
+function LoginScreen({onLogin}){
+  const[user,setUser]=useState("");
+  const[pw,setPw]=useState("");
+  const[err,setErr]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[showSetup,setShowSetup]=useState(false);
+  // setup: criar primeiro usuário com chave admin
+  const[sUser,setSUser]=useState("");
+  const[sPw,setSPw]=useState("");
+  const[sKey,setSKey]=useState("");
+  const[sMsg,setSMsg]=useState("");
+
+  const hasUsers=listUsers().length>0;
+
+  const login=()=>{
+    if(!user||!pw){setErr("Preencha usuário e senha");return;}
+    setLoading(true);
+    setTimeout(()=>{
+      const r=authLogin(user.trim().toLowerCase(),pw);
+      setLoading(false);
+      if(r==="ok"){onLogin(user.trim().toLowerCase());}
+      else if(r==="not_found"){setErr("Usuário não encontrado");}
+      else{setErr("Senha incorreta");}
+    },300);
+  };
+
+  const register=()=>{
+    if(!sUser||!sPw||!sKey){setSMsg("Preencha todos os campos");return;}
+    const r=authRegister(sUser.trim().toLowerCase(),sPw,sKey);
+    if(r==="ok"){setSMsg("✓ Usuário criado! Faça login.");setShowSetup(false);setSUser("");setSPw("");setSKey("");}
+    else if(r==="exists"){setSMsg("Usuário já existe");}
+    else{setSMsg("Chave admin incorreta");}
+  };
+
+  return(
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`linear-gradient(160deg,${C.dark} 0%,${C.dark2} 100%)`,padding:20}}>
+      <div style={{width:"100%",maxWidth:360}}>
+        <div style={{textAlign:"center",marginBottom:36}}>
+          <LogoSVG dark size={200}/>
+        </div>
+        {!showSetup?<>
+          <Card style={{marginBottom:12}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:C.dark,marginBottom:16,textAlign:"center"}}>Entrar</div>
+            <Inp label="Usuário" value={user} onChange={e=>{setUser(e.target.value);setErr("");}} placeholder="seu usuário"/>
+            <Inp label="Senha" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} placeholder="••••••••"/>
+            {err&&<div style={{fontSize:12,color:C.err,marginBottom:10,textAlign:"center"}}>{err}</div>}
+            <Btn onClick={login} variant="gold" disabled={loading}>{loading?"Entrando...":"Entrar"}</Btn>
+          </Card>
+          <button onClick={()=>{setShowSetup(true);setSMsg("");}} style={{background:"none",border:"none",color:C.sand2,fontSize:12,cursor:"pointer",width:"100%",textAlign:"center",padding:"8px",letterSpacing:1}}>
+            {hasUsers?"+ Criar novo usuário":"Configurar primeiro acesso"}
+          </button>
+        </>:<>
+          <Card style={{marginBottom:12}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,color:C.dark,marginBottom:16,textAlign:"center"}}>Criar Usuário</div>
+            <Inp label="Usuário" value={sUser} onChange={e=>setSUser(e.target.value)} placeholder="nome de usuário"/>
+            <Inp label="Senha" type="password" value={sPw} onChange={e=>setSPw(e.target.value)} placeholder="••••••••"/>
+            <Inp label="Chave Admin" type="password" value={sKey} onChange={e=>setSKey(e.target.value)} placeholder="chave de administrador" note={`Padrão: ayumi2024 (mude em Configurações)`}/>
+            {sMsg&&<div style={{fontSize:12,color:sMsg.startsWith("✓")?C.sage:C.err,marginBottom:10,textAlign:"center"}}>{sMsg}</div>}
+            <Btn onClick={register} variant="gold">Criar Usuário</Btn>
+          </Card>
+          <button onClick={()=>setShowSetup(false)} style={{background:"none",border:"none",color:C.sand2,fontSize:12,cursor:"pointer",width:"100%",textAlign:"center",padding:"8px"}}>← Voltar ao login</button>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HOME
+// ══════════════════════════════════════════════════════════════════════════════
+function HomeScreen({produtos,vendas}){
+  const todayStr=today();
+  const calc=arr=>arr.reduce((acc,v)=>{
+    const p=produtos.find(p=>p.id===v.produtoId);
+    const val=(v.valorCobrado??v.valorUnit)*v.qtd;
+    const custo=(p?p.custo:0)*v.qtd;
+    const desc=(v.valorUnit-(v.valorCobrado??v.valorUnit))*v.qtd;
+    return{vendas:acc.vendas+val,custos:acc.custos+custo,lucro:acc.lucro+(val-custo),desc:acc.desc+desc};
+  },{vendas:0,custos:0,lucro:0,desc:0});
+  const hoje=calc(vendas.filter(v=>v.data===todayStr));
+  const geral=calc(vendas);
+  const ranking=[...produtos].map(p=>({...p,qtdV:vendas.filter(v=>v.produtoId===p.id).reduce((s,v)=>s+v.qtd,0)})).filter(p=>p.qtdV>0).sort((a,b)=>b.qtdV-a.qtdV).slice(0,3);
+  const Stat=({label,value,accent})=>(
+    <div style={{background:C.cream2,borderRadius:14,padding:"12px 8px",textAlign:"center",flex:1,border:accent?`2px solid ${C.gold}`:`1.5px solid ${C.sand2}`}}>
+      <div style={{fontSize:9,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:3}}>{label}</div>
+      <div style={{fontSize:15,fontFamily:"'Cormorant Garamond',serif",fontWeight:600,color:accent?C.gold:C.dark}}>{value}</div>
+    </div>
+  );
+  return(
+    <div style={{padding:"0 16px 16px"}}>
+      <div style={{background:`linear-gradient(160deg,${C.dark},${C.dark2})`,borderRadius:"0 0 28px 28px",padding:"28px 24px",marginBottom:20,marginLeft:-16,marginRight:-16,textAlign:"center"}}>
+        <LogoSVG dark size={200}/>
+        <div style={{marginTop:12,fontSize:12,color:C.sand2,letterSpacing:2}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})}</div>
+      </div>
+      <div style={{fontSize:10,letterSpacing:2,color:C.muted,textTransform:"uppercase",marginBottom:10}}>📍 Hoje</div>
+      <div style={{display:"flex",gap:8,marginBottom:4}}><Stat label="Vendas" value={fmt(hoje.vendas)} accent/><Stat label="Custos" value={fmt(hoje.custos)}/><Stat label="Lucro" value={fmt(hoje.lucro)}/></div>
+      {hoje.desc>0&&<div style={{fontSize:11,color:C.rose,textAlign:"right",marginBottom:12}}>Descontos hoje: {fmt(hoje.desc)}</div>}
+      <div style={{marginBottom:16}}/>
+      <div style={{fontSize:10,letterSpacing:2,color:C.muted,textTransform:"uppercase",marginBottom:10}}>📊 Geral</div>
+      <div style={{display:"flex",gap:8,marginBottom:4}}><Stat label="Total" value={fmt(geral.vendas)}/><Stat label="Custos" value={fmt(geral.custos)}/><Stat label="Lucro" value={fmt(geral.lucro)}/></div>
+      {geral.desc>0&&<div style={{fontSize:11,color:C.rose,textAlign:"right",marginBottom:12}}>Total descontos: {fmt(geral.desc)}</div>}
+      {ranking.length>0&&<>
+        <div style={{fontSize:10,letterSpacing:2,color:C.muted,textTransform:"uppercase",marginBottom:10,marginTop:8}}>🏆 Mais Vendidos</div>
+        <Card>{ranking.map((p,i)=>(
+          <div key={p.id} style={{display:"flex",alignItems:"center",padding:"9px 0",borderBottom:i<ranking.length-1?`1px solid ${C.sand}`:"none"}}>
+            <div style={{width:26,height:26,borderRadius:"50%",background:i===0?C.gold:C.sand2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:i===0?C.white:C.dark2,fontWeight:600,marginRight:12,flexShrink:0}}>{i+1}</div>
+            <div style={{flex:1}}><div style={{fontSize:13,color:C.dark,fontWeight:500}}>{p.nome}</div><div style={{fontSize:11,color:C.muted}}>{p.qtdV} unid.</div></div>
+            <div style={{fontSize:13,color:C.dark2,fontWeight:500}}>{fmt(p.qtdV*p.preco)}</div>
+          </div>
+        ))}</Card>
+      </>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PRODUTOS
+// ══════════════════════════════════════════════════════════════════════════════
+function Produtos({produtos,setProdutos,toast}){
+  const[form,setForm]=useState({nome:"",custo:"",preco:"",estoqueInicial:""});
+  const[editId,setEditId]=useState(null);
+  const[show,setShow]=useState(false);
+  const s=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const save=()=>{
+    if(!form.nome||!form.custo||!form.preco){toast("Preencha todos os campos!");return;}
+    if(editId!==null){setProdutos(produtos.map(p=>p.id===editId?{...p,...form,custo:+form.custo,preco:+form.preco,estoqueInicial:+form.estoqueInicial||0}:p));toast("Produto atualizado ✓");}
+    else{setProdutos([...produtos,{id:Date.now(),nome:form.nome,custo:+form.custo,preco:+form.preco,estoqueInicial:+form.estoqueInicial||0}]);toast("Produto cadastrado ✓");}
+    setForm({nome:"",custo:"",preco:"",estoqueInicial:""});setEditId(null);setShow(false);
+  };
+  const edit=p=>{setForm({nome:p.nome,custo:p.custo,preco:p.preco,estoqueInicial:p.estoqueInicial});setEditId(p.id);setShow(true);};
+  const del=id=>{setProdutos(produtos.filter(p=>p.id!==id));toast("Produto removido");};
+  return(
+    <div style={{padding:"0 16px 16px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,color:C.dark}}>Produtos</div>
+        <button onClick={()=>{setShow(!show);setEditId(null);setForm({nome:"",custo:"",preco:"",estoqueInicial:""}); }} style={{background:show?C.sand2:`linear-gradient(135deg,${C.gold},${C.gold2})`,border:"none",borderRadius:20,padding:"8px 16px",fontSize:13,color:show?C.dark:C.white,cursor:"pointer"}}>{show?"Cancelar":"+ Novo"}</button>
+      </div>
+      {show&&<Card style={{marginBottom:16,border:`1.5px solid ${C.gold}`}}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:C.dark,marginBottom:14}}>{editId?"Editar":"Novo Produto"}</div>
+        <Inp label="Nome" value={form.nome} onChange={e=>s("nome",e.target.value)} placeholder="Ex: Vela Aromática"/>
+        <div style={{display:"flex",gap:8}}>
+          <div style={{flex:1}}><Inp label="Custo (R$)" type="number" value={form.custo} onChange={e=>s("custo",e.target.value)} min="0" step="0.01"/></div>
+          <div style={{flex:1}}><Inp label="Preço (R$)" type="number" value={form.preco} onChange={e=>s("preco",e.target.value)} min="0" step="0.01"/></div>
+        </div>
+        <Inp label="Estoque Inicial" type="number" value={form.estoqueInicial} onChange={e=>s("estoqueInicial",e.target.value)} min="0"/>
+        <Btn onClick={save} variant="gold">{editId?"Salvar":"Cadastrar"}</Btn>
+      </Card>}
+      {produtos.length===0?<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:32,marginBottom:8}}>🕯️</div><div style={{color:C.muted,fontSize:14}}>Nenhum produto cadastrado</div></Card>:
+        produtos.map(p=><Card key={p.id} style={{marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:500,color:C.dark,marginBottom:4}}>{p.nome}</div>
+              <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,color:C.muted}}>Custo: <b style={{color:C.dark2}}>{fmt(p.custo)}</b></span>
+                <span style={{fontSize:12,color:C.muted}}>Preço: <b style={{color:C.gold}}>{fmt(p.preco)}</b></span>
+                <span style={{fontSize:12,color:C.muted}}>Estoque: <b style={{color:C.sage}}>{p.estoqueInicial}</b></span>
+              </div>
+              <div style={{marginTop:4,fontSize:11,color:C.sage}}>Margem: {p.preco>0?Math.round(((p.preco-p.custo)/p.preco)*100):0}%</div>
+            </div>
+            <div style={{display:"flex",gap:6,marginLeft:10}}>
+              <button onClick={()=>edit(p)} style={{background:C.cream,border:`1px solid ${C.sand2}`,borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13}}>✏️</button>
+              <button onClick={()=>del(p.id)} style={{background:"#FFF0EE",border:"1px solid #F5C6C2",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13}}>🗑️</button>
+            </div>
+          </div>
+        </Card>)
+      }
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VENDAS
+// ══════════════════════════════════════════════════════════════════════════════
+function Vendas({produtos,vendas,setVendas,toast}){
+  const[form,setForm]=useState({data:today(),produtoId:"",qtd:1,precoCustom:""});
+  const[show,setShow]=useState(false);
+  const[filtro,setFiltro]=useState("");
+  const s=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const prod=produtos.find(p=>p.id===+form.produtoId);
+  const precoBase=prod?prod.preco:0;
+  const precoFinal=form.precoCustom!==""?+form.precoCustom:precoBase;
+  const descPct=precoBase>0&&precoFinal<precoBase?((precoBase-precoFinal)/precoBase)*100:0;
+  const save=()=>{
+    if(!form.produtoId){toast("Selecione um produto!");return;}
+    if(!form.qtd||+form.qtd<1){toast("Quantidade inválida!");return;}
+    setVendas([{id:Date.now(),data:form.data,produto:prod.nome,produtoId:prod.id,qtd:+form.qtd,valorUnit:precoBase,valorCobrado:precoFinal,desconto:+descPct.toFixed(2)},...vendas]);
+    toast("Venda registrada ✓");setForm({data:today(),produtoId:"",qtd:1,precoCustom:""});setShow(false);
+  };
+  const del=id=>{setVendas(vendas.filter(v=>v.id!==id));toast("Venda removida");};
+  const filtered=filtro?vendas.filter(v=>v.data===filtro):vendas;
+  return(
+    <div style={{padding:"0 16px 16px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,color:C.dark}}>Vendas</div>
+        <button onClick={()=>setShow(!show)} style={{background:show?C.sand2:`linear-gradient(135deg,${C.dark2},${C.dark})`,border:"none",borderRadius:20,padding:"8px 16px",fontSize:13,color:show?C.dark:C.white,cursor:"pointer"}}>{show?"Cancelar":"+ Nova"}</button>
+      </div>
+      {show&&<Card style={{marginBottom:16,border:`1.5px solid ${C.dark2}`}}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:C.dark,marginBottom:14}}>Registrar Venda</div>
+        <Inp label="Data" type="date" value={form.data} onChange={e=>s("data",e.target.value)}/>
+        <Sel label="Produto" value={form.produtoId} onChange={e=>{s("produtoId",e.target.value);s("precoCustom","");}} options={produtos.map(p=>({value:p.id,label:p.nome}))}/>
+        {prod&&<div style={{background:C.cream2,border:`1px solid ${C.sand2}`,borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:C.dark2}}>Preço tabela: <b style={{color:C.gold}}>{fmt(precoBase)}</b></div>}
+        <Inp label="Quantidade" type="number" value={form.qtd} onChange={e=>s("qtd",e.target.value)} min="1"/>
+        {prod&&<Inp label="Preço Cobrado (R$)" type="number" value={form.precoCustom} onChange={e=>s("precoCustom",e.target.value)} min="0" step="0.01" placeholder={`Tabela: ${precoBase}`} note="Deixe em branco para usar o preço tabela"/>}
+        {prod&&form.precoCustom!==""&&+form.precoCustom<precoBase&&<div style={{background:"#FFF0EE",border:"1px solid #F5C6C2",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:C.err}}>⚠️ Desconto: {fmt(precoBase-+form.precoCustom)} por un. ({descPct.toFixed(1)}%)</div>}
+        {prod&&+form.qtd>0&&<div style={{background:`linear-gradient(135deg,${C.dark},${C.dark2})`,borderRadius:10,padding:"10px 14px",marginBottom:12,textAlign:"center"}}>
+          <span style={{fontSize:11,color:C.sand2,letterSpacing:1}}>TOTAL · </span>
+          <span style={{fontSize:20,fontFamily:"'Cormorant Garamond',serif",color:C.gold2,fontWeight:600}}>{fmt(precoFinal*+form.qtd)}</span>
+        </div>}
+        <Btn onClick={save}>Registrar Venda</Btn>
+      </Card>}
+      <div style={{marginBottom:14}}>
+        <Inp label="Filtrar por data" type="date" value={filtro} onChange={e=>setFiltro(e.target.value)}/>
+        {filtro&&<button onClick={()=>setFiltro("")} style={{background:"none",border:"none",color:C.muted,fontSize:12,cursor:"pointer",marginTop:-8}}>✕ Limpar filtro</button>}
+      </div>
+      {filtered.length===0?<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:32,marginBottom:8}}>🛍️</div><div style={{color:C.muted,fontSize:14}}>Nenhuma venda encontrada</div></Card>:
+        filtered.map(v=>{
+          const p=produtos.find(p=>p.id===v.produtoId);
+          const cobrado=(v.valorCobrado??v.valorUnit)*v.qtd;
+          const lucro=cobrado-(p?p.custo*v.qtd:0);
+          return<Card key={v.id} style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,background:C.sand,color:C.dark2,padding:"2px 8px",borderRadius:10}}>{fmtDate(v.data)}</span>
+                  <span style={{fontSize:11,color:C.muted}}>Qtd: {v.qtd}</span>
+                  {v.desconto>0&&<span style={{fontSize:10,background:"#FFF0EE",color:C.err,padding:"2px 8px",borderRadius:10}}>-{v.desconto.toFixed(1)}%</span>}
+                </div>
+                <div style={{fontSize:14,fontWeight:500,color:C.dark,marginBottom:4}}>{v.produto}</div>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                  <span style={{fontSize:12,color:C.gold,fontWeight:500}}>{fmt(cobrado)}</span>
+                  <span style={{fontSize:12,color:C.sage}}>+{fmt(lucro)} lucro</span>
+                </div>
+              </div>
+              <button onClick={()=>del(v.id)} style={{background:"#FFF0EE",border:"1px solid #F5C6C2",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13,marginLeft:8}}>🗑️</button>
+            </div>
+          </Card>;
+        })
+      }
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CUSTOS
+// ══════════════════════════════════════════════════════════════════════════════
+function Custos({produtos,fichas,setFichas,toast}){
+  const[prodSel,setProdSel]=useState("");
+  const[fichaAtual,setFichaAtual]=useState(null);
+  const[formI,setFormI]=useState({nome:"",qtdComp:"",unidComp:"g",precoComp:"",qtdUso:"",unidUso:"g"});
+  const[editId,setEditId]=useState(null);
+  const[showF,setShowF]=useState(false);
+  const sf=(k,v)=>setFormI(f=>({...f,[k]:v}));
+  const prod=produtos.find(p=>p.id===+prodSel);
+  useEffect(()=>{
+    if(!prodSel){setFichaAtual(null);return;}
+    const f=fichas.find(f=>f.produtoId===+prodSel);
+    setFichaAtual(f||{produtoId:+prodSel,insumos:[]});
+  },[prodSel,fichas]);
+  const salvar=ficha=>{const n=fichas.filter(f=>f.produtoId!==ficha.produtoId);setFichas([...n,ficha]);};
+  const custI=ins=>{const bc=toBase(+ins.qtdComp,ins.unidComp);const bu=toBase(+ins.qtdUso,ins.unidUso);if(!bc||!bu||!ins.precoComp)return 0;return(+ins.precoComp/bc)*bu;};
+  const total=fichaAtual?fichaAtual.insumos.reduce((s,i)=>s+custI(i),0):0;
+  const add=()=>{
+    if(!formI.nome||!formI.qtdComp||!formI.precoComp||!formI.qtdUso){toast("Preencha todos os campos!");return;}
+    const ficha=fichaAtual||{produtoId:+prodSel,insumos:[]};
+    const ins=editId!==null?ficha.insumos.map(i=>i.id===editId?{...formI,id:editId}:i):[...ficha.insumos,{...formI,id:Date.now()}];
+    const nova={...ficha,insumos:ins};setFichaAtual(nova);salvar(nova);
+    toast(editId?"Insumo atualizado ✓":"Insumo adicionado ✓");
+    setFormI({nome:"",qtdComp:"",unidComp:"g",precoComp:"",qtdUso:"",unidUso:"g"});setEditId(null);setShowF(false);
+  };
+  const editI=ins=>{setFormI({nome:ins.nome,qtdComp:ins.qtdComp,unidComp:ins.unidComp,precoComp:ins.precoComp,qtdUso:ins.qtdUso,unidUso:ins.unidUso});setEditId(ins.id);setShowF(true);};
+  const delI=id=>{const n={...fichaAtual,insumos:fichaAtual.insumos.filter(i=>i.id!==id)};setFichaAtual(n);salvar(n);toast("Insumo removido");};
+  const custoPreview=(()=>{const bc=toBase(+formI.qtdComp,formI.unidComp);const bu=toBase(+formI.qtdUso,formI.unidUso);return bc&&bu?(+formI.precoComp/bc)*bu:0;})();
+  return(
+    <div style={{padding:"0 16px 16px"}}>
+      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,color:C.dark,marginBottom:4}}>Custos</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Custo detalhado por insumo</div>
+      <Sel label="Selecione o produto" value={prodSel} onChange={e=>{setProdSel(e.target.value);setShowF(false);}} options={produtos.map(p=>({value:p.id,label:p.nome}))}/>
+      {prod&&fichaAtual&&<>
+        <Card style={{marginBottom:16,background:`linear-gradient(135deg,${C.dark},${C.dark2})`,border:"none"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><div style={{fontSize:11,color:C.sand2,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Custo Total · {prod.nome}</div><div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,color:C.gold2,fontWeight:600}}>{fmt(total)}</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:11,color:C.sand3,marginBottom:4}}>Preço tabela</div><div style={{fontSize:20,color:C.white,fontFamily:"'Cormorant Garamond',serif"}}>{fmt(prod.preco)}</div><div style={{fontSize:11,color:C.sage,marginTop:4}}>Margem: {prod.preco>0?((prod.preco-total)/prod.preco*100).toFixed(1):0}%</div></div>
+          </div>
+          {total>0&&prod.preco>0&&<div style={{marginTop:12,background:"rgba(255,255,255,.08)",borderRadius:8,height:6,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,(total/prod.preco)*100)}%`,background:`linear-gradient(to right,${C.gold},${C.rose})`}}/></div>}
+        </Card>
+        {fichaAtual.insumos.map(ins=>{
+          const c=custI(ins);const pct=total>0?(c/total*100).toFixed(0):0;
+          return<Card key={ins.id} style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:500,color:C.dark,marginBottom:6}}>{ins.nome}</div>
+                <div style={{fontSize:11,color:C.muted,marginBottom:2}}>Compra: <b>{ins.qtdComp}{ins.unidComp}</b> por <b>{fmt(+ins.precoComp)}</b></div>
+                <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Uso por vela: <b>{ins.qtdUso}{ins.unidUso}</b></div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:C.gold,fontWeight:600}}>{fmt(c)}</div>
+                  <div style={{flex:1,background:C.sand,borderRadius:4,height:4,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:C.gold,borderRadius:4}}/></div>
+                  <div style={{fontSize:11,color:C.muted}}>{pct}%</div>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:6,marginLeft:10}}>
+                <button onClick={()=>editI(ins)} style={{background:C.cream,border:`1px solid ${C.sand2}`,borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13}}>✏️</button>
+                <button onClick={()=>delI(ins.id)} style={{background:"#FFF0EE",border:"1px solid #F5C6C2",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13}}>🗑️</button>
+              </div>
+            </div>
+          </Card>;
+        })}
+        {!showF&&<button onClick={()=>{setShowF(true);setEditId(null);setFormI({nome:"",qtdComp:"",unidComp:"g",precoComp:"",qtdUso:"",unidUso:"g"});}} style={{width:"100%",background:`linear-gradient(135deg,${C.gold},${C.gold2})`,border:"none",borderRadius:12,padding:"13px",fontSize:13,color:C.white,cursor:"pointer",marginBottom:12}}>+ Adicionar Insumo</button>}
+        {showF&&<Card style={{border:`1.5px solid ${C.gold}`,marginBottom:12}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:C.dark,marginBottom:14}}>{editId?"Editar":"Novo Insumo"}</div>
+          <Inp label="Nome do Insumo" value={formI.nome} onChange={e=>sf("nome",e.target.value)} placeholder="Ex: Cera de soja"/>
+          <div style={{background:C.cream2,border:`1px solid ${C.sand2}`,borderRadius:10,padding:12,marginBottom:12}}>
+            <div style={{fontSize:10,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:10}}>📦 Dados da Compra</div>
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:2}}><Inp label="Qtd comprada" type="number" value={formI.qtdComp} onChange={e=>sf("qtdComp",e.target.value)} min="0" step="any" placeholder="Ex: 1000"/></div>
+              <div style={{flex:1}}>
+                <label style={{display:"block",fontSize:10,fontWeight:500,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:4}}>Unid</label>
+                <select value={formI.unidComp} onChange={e=>sf("unidComp",e.target.value)} style={{width:"100%",padding:"11px 8px",border:`1.5px solid ${C.sand2}`,borderRadius:10,background:C.cream2,fontSize:14,outline:"none"}}>{UNITS.map(u=><option key={u}>{u}</option>)}</select>
+              </div>
+            </div>
+            <Inp label="Valor pago (R$)" type="number" value={formI.precoComp} onChange={e=>sf("precoComp",e.target.value)} min="0" step="0.01"/>
+          </div>
+          <div style={{background:C.cream2,border:`1px solid ${C.sand2}`,borderRadius:10,padding:12,marginBottom:12}}>
+            <div style={{fontSize:10,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:10}}>🕯️ Uso por Vela</div>
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:2}}><Inp label="Qtd usada" type="number" value={formI.qtdUso} onChange={e=>sf("qtdUso",e.target.value)} min="0" step="any" placeholder="Ex: 200"/></div>
+              <div style={{flex:1}}>
+                <label style={{display:"block",fontSize:10,fontWeight:500,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:4}}>Unid</label>
+                <select value={formI.unidUso} onChange={e=>sf("unidUso",e.target.value)} style={{width:"100%",padding:"11px 8px",border:`1.5px solid ${C.sand2}`,borderRadius:10,background:C.cream2,fontSize:14,outline:"none"}}>{UNITS.map(u=><option key={u}>{u}</option>)}</select>
+              </div>
+            </div>
+            {formI.qtdComp&&formI.precoComp&&formI.qtdUso&&<div style={{background:`linear-gradient(135deg,${C.dark},${C.dark2})`,borderRadius:8,padding:"10px 12px",textAlign:"center"}}>
+              <span style={{fontSize:11,color:C.sand2}}>Custo por vela: </span>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:C.gold2,fontWeight:600}}>{fmt(custoPreview)}</span>
+            </div>}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <Btn onClick={()=>{setShowF(false);setEditId(null);}} variant="light" style={{flex:1}}>Cancelar</Btn>
+            <Btn onClick={add} variant="gold" style={{flex:2}}>{editId?"Salvar":"Adicionar"}</Btn>
+          </div>
+        </Card>}
+      </>}
+      {!prodSel&&<Card style={{textAlign:"center",padding:40}}><div style={{fontSize:36,marginBottom:10}}>🧮</div><div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:C.dark,marginBottom:6}}>Calculadora de Custos</div><div style={{fontSize:13,color:C.muted}}>Selecione um produto acima</div></Card>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RELATÓRIO
+// ══════════════════════════════════════════════════════════════════════════════
+function Relatorio({produtos,vendas}){
+  const meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  const ano=new Date().getFullYear();
+  const[aba,setAba]=useState("mensal");
+  const[diaSel,setDiaSel]=useState(today());
+  const calc=arr=>arr.reduce((acc,v)=>{
+    const p=produtos.find(p=>p.id===v.produtoId);
+    const val=(v.valorCobrado??v.valorUnit)*v.qtd;
+    const custo=(p?p.custo:0)*v.qtd;
+    const desc=(v.valorUnit-(v.valorCobrado??v.valorUnit))*v.qtd;
+    return{vendas:acc.vendas+val,custos:acc.custos+custo,lucro:acc.lucro+(val-custo),descontos:acc.descontos+desc,qtd:acc.qtd+v.qtd};
+  },{vendas:0,custos:0,lucro:0,descontos:0,qtd:0});
+  const mensal=meses.map((m,i)=>{const mv=vendas.filter(v=>{const d=new Date(v.data);return d.getFullYear()===ano&&d.getMonth()===i;});return{m,...calc(mv)};});
+  const maxV=Math.max(...mensal.map(d=>d.vendas),1);
+  const totalAno=calc(vendas.filter(v=>new Date(v.data).getFullYear()===ano));
+  const vendasDia=diaSel?vendas.filter(v=>v.data===diaSel):[];
+  const totalDia=calc(vendasDia);
+  const porProd=[];
+  vendasDia.forEach(v=>{const ex=porProd.find(x=>x.produtoId===v.produtoId);const c=(v.valorCobrado??v.valorUnit)*v.qtd;const p=produtos.find(p=>p.id===v.produtoId);const cu=(p?p.custo:0)*v.qtd;if(ex){ex.qtd+=v.qtd;ex.total+=c;ex.lucro+=c-cu;}else porProd.push({produtoId:v.produtoId,nome:v.produto,qtd:v.qtd,total:c,lucro:c-cu});});
+  const comDesc=vendas.filter(v=>v.desconto>0).sort((a,b)=>new Date(b.data)-new Date(a.data));
+  const totalDesc=comDesc.reduce((s,v)=>(s+(v.valorUnit-(v.valorCobrado??v.valorUnit))*v.qtd),0);
+  const abas=[["mensal","📅 Mensal"],["diario","📆 Diário"],["descontos","🏷️ Descontos"]];
+  return(
+    <div style={{padding:"0 16px 16px"}}>
+      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,color:C.dark,marginBottom:12}}>Relatório</div>
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
+        {abas.map(([id,label])=>(
+          <button key={id} onClick={()=>setAba(id)} style={{flex:1,padding:"9px 4px",border:"none",borderRadius:10,fontSize:11,cursor:"pointer",background:aba===id?C.dark:C.cream,color:aba===id?C.white:C.muted,fontWeight:aba===id?500:300,whiteSpace:"nowrap"}}>{label}</button>
+        ))}
+      </div>
+      {aba==="mensal"&&<>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+          {[["Vendas",totalAno.vendas,C.dark],["Custos",totalAno.custos,C.rose],["Lucro",totalAno.lucro,C.sage],["Descontos",totalAno.descontos,C.err]].map(([l,v,c])=>(
+            <Card key={l} style={{textAlign:"center",padding:"12px 8px"}}><div style={{fontSize:9,letterSpacing:1,color:C.muted,textTransform:"uppercase",marginBottom:4}}>{l}</div><div style={{fontSize:15,fontFamily:"'Cormorant Garamond',serif",fontWeight:600,color:c}}>{fmt(v)}</div></Card>
+          ))}
+        </div>
+        <Card style={{marginBottom:16}}>
+          <div style={{fontSize:11,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:14}}>Vendas por Mês · {ano}</div>
+          <div style={{display:"flex",alignItems:"flex-end",gap:4,height:80}}>
+            {mensal.map((d,i)=>(
+              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <div style={{width:"100%",borderRadius:"4px 4px 0 0",height:d.vendas>0?Math.max(6,(d.vendas/maxV)*68):4,background:d.vendas>0?`linear-gradient(to top,${C.dark2},${C.sand3})`:C.sand}}/>
+                <div style={{fontSize:8,color:C.muted}}>{d.m}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          {mensal.map((d,i)=>d.vendas>0&&<div key={i} style={{padding:"9px 0",borderBottom:`1px solid ${C.sand}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <b style={{fontSize:13,color:C.dark,width:32}}>{d.m}</b>
+              <span style={{fontSize:12,color:C.dark2}}>{fmt(d.vendas)}</span>
+              <span style={{fontSize:12,color:C.rose}}>-{fmt(d.custos)}</span>
+              <span style={{fontSize:13,color:C.sage,fontWeight:500}}>{fmt(d.lucro)}</span>
+            </div>
+          </div>)}
+          {mensal.every(d=>d.vendas===0)&&<div style={{textAlign:"center",color:C.muted,fontSize:13,padding:20}}>Sem vendas no ano ainda</div>}
+        </Card>
+      </>}
+      {aba==="diario"&&<>
+        <Inp label="Escolha o dia" type="date" value={diaSel} onChange={e=>setDiaSel(e.target.value)}/>
+        {diaSel&&<>
+          <Card style={{marginBottom:16,background:`linear-gradient(135deg,${C.dark},${C.dark2})`,border:"none"}}>
+            <div style={{fontSize:11,color:C.sand2,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>{fmtDate(diaSel)}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+              <div><div style={{fontSize:10,color:C.sand3,marginBottom:2}}>Vendas</div><div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,color:C.gold2,fontWeight:600}}>{fmt(totalDia.vendas)}</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:12,color:C.sage}}>{fmt(totalDia.lucro)} lucro</div><div style={{fontSize:12,color:C.rose}}>-{fmt(totalDia.custos)} custo</div></div>
+            </div>
+            {totalDia.qtd>0&&<div style={{marginTop:10,fontSize:12,color:C.sand2}}>{totalDia.qtd} unidade(s) vendida(s)</div>}
+          </Card>
+          {vendasDia.length===0?<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:32,marginBottom:8}}>📭</div><div style={{color:C.muted,fontSize:14}}>Nenhuma venda neste dia</div></Card>:
+            <>
+              {porProd.map((p,i)=><Card key={i} style={{marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div><div style={{fontSize:14,fontWeight:500,color:C.dark,marginBottom:4}}>{p.nome}</div><div style={{fontSize:12,color:C.muted}}>{p.qtd} unidade(s)</div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontSize:15,fontFamily:"'Cormorant Garamond',serif",color:C.gold,fontWeight:600}}>{fmt(p.total)}</div><div style={{fontSize:11,color:C.sage}}>+{fmt(p.lucro)} lucro</div></div>
+                </div>
+              </Card>)}
+            </>
+          }
+        </>}
+      </>}
+      {aba==="descontos"&&<>
+        <Card style={{marginBottom:16,background:`linear-gradient(135deg,${C.dark},${C.dark2})`,border:"none"}}>
+          <div style={{fontSize:11,color:C.sand2,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Total de Descontos Concedidos</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,color:C.rose,fontWeight:600}}>{fmt(totalDesc)}</div>
+          <div style={{fontSize:12,color:C.sand3,marginTop:4}}>{comDesc.length} venda(s) com desconto</div>
+        </Card>
+        {comDesc.length===0?<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:32,marginBottom:8}}>🏷️</div><div style={{color:C.muted,fontSize:14}}>Nenhuma venda com desconto</div></Card>:
+          comDesc.map(v=>{const dv=(v.valorUnit-(v.valorCobrado??v.valorUnit))*v.qtd;return<Card key={v.id} style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div><div style={{fontSize:10,background:C.sand,color:C.dark2,padding:"2px 8px",borderRadius:10,display:"inline-block",marginBottom:5}}>{fmtDate(v.data)}</div><div style={{fontSize:14,fontWeight:500,color:C.dark}}>{v.produto}</div><div style={{fontSize:12,color:C.muted}}>Qtd: {v.qtd} · Cobrado: {fmt(v.valorCobrado??v.valorUnit)}</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:11,color:C.rose}}>-{fmt(dv)}</div><div style={{fontSize:11,color:C.muted}}>{v.desconto.toFixed(1)}%</div></div>
+            </div>
+          </Card>;})}
+      </>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CONFIGURAÇÕES
+// ══════════════════════════════════════════════════════════════════════════════
+function Configuracoes({currentUser,onLogout,toast}){
+  const[newAdminKey,setNewAdminKey]=useState("");
+  const[confirmKey,setConfirmKey]=useState("");
+  const[msg,setMsg]=useState("");
+  const saveKey=()=>{
+    if(newAdminKey.length<6){setMsg("Chave deve ter pelo menos 6 caracteres");return;}
+    if(newAdminKey!==confirmKey){setMsg("As chaves não coincidem");return;}
+    setAdminKeyStore(newAdminKey);setMsg("✓ Chave admin atualizada!");setNewAdminKey("");setConfirmKey("");
+  };
+  const users=listUsers();
+  return(
+    <div style={{padding:"0 16px 16px"}}>
+      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,color:C.dark,marginBottom:16}}>Configurações</div>
+      <Card style={{marginBottom:12}}>
+        <div style={{fontSize:11,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:12}}>Sessão Atual</div>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+          <div style={{width:40,height:40,borderRadius:"50%",background:`linear-gradient(135deg,${C.gold},${C.gold2})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:C.white,fontWeight:600}}>{currentUser[0].toUpperCase()}</div>
+          <div><div style={{fontSize:15,fontWeight:500,color:C.dark}}>{currentUser}</div><div style={{fontSize:12,color:C.muted}}>Logado agora</div></div>
+        </div>
+        <Btn onClick={onLogout} variant="danger">Sair da conta</Btn>
+      </Card>
+      <Card style={{marginBottom:12}}>
+        <div style={{fontSize:11,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:12}}>👥 Usuários Cadastrados</div>
+        {users.map(u=><div key={u} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.sand}`}}>
+          <div style={{width:28,height:28,borderRadius:"50%",background:u===currentUser?C.gold:C.sand2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:u===currentUser?C.white:C.dark2,fontWeight:600}}>{u[0].toUpperCase()}</div>
+          <div style={{fontSize:13,color:C.dark}}>{u}{u===currentUser&&<span style={{fontSize:10,color:C.gold,marginLeft:6}}>• você</span>}</div>
+        </div>)}
+        <div style={{fontSize:11,color:C.muted,marginTop:10}}>Para criar novos usuários use a tela de login + chave admin.</div>
+      </Card>
+      <Card>
+        <div style={{fontSize:11,letterSpacing:1.5,color:C.muted,textTransform:"uppercase",marginBottom:12}}>🔑 Alterar Chave Admin</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Esta chave é necessária para criar novos usuários. Padrão: <b>ayumi2024</b></div>
+        <Inp label="Nova chave" type="password" value={newAdminKey} onChange={e=>setNewAdminKey(e.target.value)} placeholder="mínimo 6 caracteres"/>
+        <Inp label="Confirmar chave" type="password" value={confirmKey} onChange={e=>setConfirmKey(e.target.value)} placeholder="repita a chave"/>
+        {msg&&<div style={{fontSize:12,color:msg.startsWith("✓")?C.sage:C.err,marginBottom:10,textAlign:"center"}}>{msg}</div>}
+        <Btn onClick={saveKey} variant="primary">Salvar Chave</Btn>
+      </Card>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// APP ROOT
+// ══════════════════════════════════════════════════════════════════════════════
+function App(){
+  const[currentUser,setCurrentUser]=useState(()=>sessionStorage.getItem('ayumi_user')||null);
+  const[tab,setTab]=useState("home");
+  const[produtos,setProdutosState]=useState(null);
+  const[vendas,setVendasState]=useState(null);
+  const[fichas,setFichasState]=useState(null);
+  const[toast,setToast]=useState("");
+
+  useEffect(()=>{
+    if(!currentUser)return;
+    setProdutosState(loadUD(currentUser,"produtos")||INIT_PRODS);
+    setVendasState(loadUD(currentUser,"vendas")||INIT_VENDAS);
+    setFichasState(loadUD(currentUser,"fichas")||[]);
+  },[currentUser]);
+
+  const setProdutos=useCallback(val=>{const n=typeof val==="function"?val(produtos):val;setProdutosState(n);saveUD(currentUser,"produtos",n);},[produtos,currentUser]);
+  const setVendas=useCallback(val=>{const n=typeof val==="function"?val(vendas):val;setVendasState(n);saveUD(currentUser,"vendas",n);},[vendas,currentUser]);
+  const setFichas=useCallback(val=>{const n=typeof val==="function"?val(fichas):val;setFichasState(n);saveUD(currentUser,"fichas",n);},[fichas,currentUser]);
+
+  const handleLogin=user=>{sessionStorage.setItem('ayumi_user',user);setCurrentUser(user);};
+  const handleLogout=()=>{sessionStorage.removeItem('ayumi_user');setCurrentUser(null);setProdutosState(null);setVendasState(null);setFichasState(null);setTab("home");};
+
+  if(!currentUser) return <LoginScreen onLogin={handleLogin}/>;
+  if(!produtos||!vendas||!fichas) return(
+    <div style={{height:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:`linear-gradient(160deg,${C.dark},${C.dark2})`,gap:20}}>
+      <LogoSVG dark size={180}/>
+      <div style={{fontSize:12,color:C.sand2,letterSpacing:3,animation:"shimmer 1.5s infinite"}}>carregando...</div>
+    </div>
+  );
+
+  const tabs=[
+    {id:"home",icon:"⌂",label:"Início"},
+    {id:"produtos",icon:"🕯️",label:"Produtos"},
+    {id:"vendas",icon:"🛍️",label:"Vendas"},
+    {id:"custos",icon:"🧮",label:"Custos"},
+    {id:"relatorio",icon:"📊",label:"Relatório"},
+    {id:"config",icon:"⚙️",label:"Config"},
+  ];
+
+  return(
+    <div style={{maxWidth:430,margin:"0 auto",minHeight:"100vh",background:C.cream,position:"relative",paddingBottom:80}}>
+      <div style={{background:C.cream,borderBottom:`1px solid ${C.sand2}`,padding:"10px 16px 8px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100}}>
+        <div style={{width:120}}><LogoSVG size={120}/></div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg,${C.gold},${C.gold2})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:C.white,fontWeight:600}}>{currentUser[0].toUpperCase()}</div>
+          <span style={{fontSize:12,color:C.dark2,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser}</span>
+        </div>
+      </div>
+      <div style={{paddingTop:16}}>
+        {tab==="home"&&<HomeScreen produtos={produtos} vendas={vendas}/>}
+        {tab==="produtos"&&<Produtos produtos={produtos} setProdutos={setProdutos} toast={msg=>setToast(msg)}/>}
+        {tab==="vendas"&&<Vendas produtos={produtos} vendas={vendas} setVendas={setVendas} toast={msg=>setToast(msg)}/>}
+        {tab==="custos"&&<Custos produtos={produtos} fichas={fichas} setFichas={setFichas} toast={msg=>setToast(msg)}/>}
+        {tab==="relatorio"&&<Relatorio produtos={produtos} vendas={vendas}/>}
+        {tab==="config"&&<Configuracoes currentUser={currentUser} onLogout={handleLogout} toast={msg=>setToast(msg)}/>}
+      </div>
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:C.white,borderTop:`1px solid ${C.sand2}`,display:"flex",zIndex:200,boxShadow:"0 -4px 20px rgba(61,43,31,.1)"}}>
+        {tabs.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,background:"none",border:"none",padding:"10px 0 12px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+            <div style={{fontSize:t.id==="custos"||t.id==="config"?15:18,lineHeight:1,filter:tab===t.id?"none":"grayscale(1) opacity(.5)"}}>{t.icon}</div>
+            <div style={{fontSize:8,letterSpacing:.3,color:tab===t.id?C.dark:C.muted,fontWeight:tab===t.id?500:300}}>{t.label}</div>
+            {tab===t.id&&<div style={{width:16,height:2,background:C.gold,borderRadius:1}}/>}
+          </button>
+        ))}
+      </div>
+      {toast&&<Toast msg={toast} onClose={()=>setToast("")}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
